@@ -48,21 +48,23 @@ import warnings
 import xml.dom.minidom
 
 import PIL.Image
+# maybe not a good idea if used as a normal lib. However, in this case, you really want to process very large images so, this option has to be modified.
+PIL.Image.MAX_IMAGE_PIXELS = None
 
 from collections import deque
 
 
 NS_DEEPZOOM = "http://schemas.microsoft.com/deepzoom/2008"
 
-DEFAULT_RESIZE_FILTER = PIL.Image.ANTIALIAS
+DEFAULT_RESIZE_FILTER = PIL.Image.LANCZOS
 DEFAULT_IMAGE_FORMAT = "jpg"
 
 RESIZE_FILTERS = {
-    "cubic": PIL.Image.CUBIC,
+    "cubic": PIL.Image.BICUBIC,
     "bilinear": PIL.Image.BILINEAR,
     "bicubic": PIL.Image.BICUBIC,
     "nearest": PIL.Image.NEAREST,
-    "antialias": PIL.Image.ANTIALIAS,
+    "antialias": PIL.Image.LANCZOS,
 }
 
 IMAGE_FORMATS = {
@@ -288,7 +290,7 @@ class DeepZoomCollection(object):
             # Local
             if os.path.exists(source_path):
                 try:
-                    source_image = PIL.Image.open(safe_open(source_path))
+                    source_image = PIL.Image.open(source_path)#safe_open(source_path))
                 except IOError:
                     warnings.warn("Skipped invalid level: %s" % source_path)
                     continue
@@ -296,7 +298,7 @@ class DeepZoomCollection(object):
             else:
                 if level == self.max_level:
                     try:
-                        source_image = PIL.Image.open(safe_open(source_path))
+                        source_image = PIL.Image.open(source_path)#safe_open(source_path))
                     except IOError:
                         warnings.warn("Skipped invalid image: %s" % source_path)
                         return
@@ -309,14 +311,14 @@ class DeepZoomCollection(object):
                     if w != e_w or h != e_h:
                         # Resize incorrect tile to correct size
                         source_image = source_image.resize(
-                            (e_w, e_h), PIL.Image.ANTIALIAS
+                            (e_w, e_h), PIL.Image.LANCZOS 
                         )
                         # Store new dimensions
                         w, h = e_w, e_h
                 else:
                     w = int(math.ceil(w * 0.5))
                     h = int(math.ceil(h * 0.5))
-                    source_image.thumbnail((w, h), PIL.Image.ANTIALIAS)
+                    source_image.thumbnail((w, h), PIL.Image.LANCZOS )
             column, row = self.get_position(i)
             x = (column % images_per_tile) * level_size
             y = (row % images_per_tile) * level_size
@@ -405,7 +407,7 @@ class ImageCreator(object):
         if self.descriptor.width == width and self.descriptor.height == height:
             return self.image
         if (self.resize_filter is None) or (self.resize_filter not in RESIZE_FILTERS):
-            return self.image.resize((width, height), PIL.Image.ANTIALIAS)
+            return self.image.resize((width, height), PIL.Image.LANCZOS )
         return self.image.resize((width, height), RESIZE_FILTERS[self.resize_filter])
 
     def tiles(self, level):
@@ -420,7 +422,7 @@ class ImageCreator(object):
         if isinstance(source, PIL.Image.Image):
             self.image = source
         else:
-            self.image = PIL.Image.open(safe_open(source))
+            self.image = PIL.Image.open(source)#safe_open(source))
         width, height = self.image.size
         self.descriptor = DeepZoomImageDescriptor(
             width=width,
@@ -544,7 +546,7 @@ def safe_open(path):
     # not a URL. This change is isolated to this function as we want the output
     # XML to still have the original input paths instead of absolute paths:
     has_scheme = bool(urlparse(path).scheme)
-    normalized_path = ("file://%s" % os.path.abspath(path)) if not has_scheme else path
+    normalized_path = ("file:///%s" % path) if not has_scheme else path
     return io.BytesIO(urllib.request.urlopen(normalized_path).read())
 
 
